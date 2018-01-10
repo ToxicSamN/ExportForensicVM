@@ -4,7 +4,8 @@
 #
 # Note: Based on pyvmomi sample code export_vm.py
 #
-#
+# MUST USE PYTHON 3.5
+# Python 3.6 doesn't seem to work right now
 
 # TODO: NEED TO ADD SOME METHODS TO THE ExportVM CLASS TO EXPORT THE .VMX AND .VMSN FILES FROM THE DATASTORE
 # TODO: NEDD TO ADD A METHOD TO LinkedClone CLASS TO DELETE CLONE AND REMOVE THE SNAPSHOT
@@ -28,7 +29,7 @@ from time import sleep
 from datetime import datetime
 from pyVmomi import vim, vmodl
 from pyVim import connect, task
-from vmwarelogin.credential import UcgCryptoKey, UcgCredential, UcgEncryption
+from vmwarelogin.credential import CryptoKey, Credential, Encryption
 
 
 # disable  urllib3 warnings
@@ -123,7 +124,7 @@ class Vcenter:
                 #logger.debug('No username or password provided. Will read from encrypted files')
                 args = Args()
                 #logger.debug('args: {}'.format(args))
-                cred = UcgCredential('vCenter')
+                cred = Credential('vCenter')
                 # ToDo: change this to use a read-only username oppvfog01
                 self.username = 'oppvmwre'
                 if platform.system() == 'Windows':

@@ -5,6 +5,9 @@ import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES, PKCS1_OAEP
 
+# MUST USE PYTHON 3.5
+# Python 3.6 doesn't seem to work right now
+
 
 class CustomObject(object):
     """ Because I came from powershell I was really spoiled with New-Object PSObject
