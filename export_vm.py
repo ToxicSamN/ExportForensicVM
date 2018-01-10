@@ -742,12 +742,15 @@ def main():
 
 def get_logger(name):
     """
+    This is currently broken for this program. It was pulled from a different script but has not been modified
+    to work with this file. Minor modifications are needed to get it right.
+
     For logging purposes each function or thread will need a new logger to log to the appropriate file.
     This function will check the global dict variable loggers for a logger witht he name provided,
      if found then it will return that logger, otherwise it will create a new logger.
     Using this method instead of logging.config.dictConfig() so as to prevent duplicate logging
     Admittedly, this is a workaround instead of trying to figure out how to utilize the built-in dictConfig()
-     method properly and not have duplicate log entires.
+     method properly and not have duplicate log entries.
     The overhead for this below method is minimal and works.
     :param name:
     :return:
