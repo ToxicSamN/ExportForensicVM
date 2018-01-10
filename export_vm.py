@@ -734,7 +734,7 @@ def main():
     exp_job = ExportVM(vcenter=vc,
                        vmname=src_vm.cloned_vm.name,
                        vm_obj=src_vm.cloned_vm,
-                       destination_path="{}".format(args.destination)
+                       destination_path="{}".format(os.path.join(args.destination, args.vm))
                        )
     exp_job.prepare_export()
     exp_job.export()
