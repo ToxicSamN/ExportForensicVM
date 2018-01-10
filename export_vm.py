@@ -36,12 +36,15 @@ from vmwarelogin.credential import CryptoKey, Credential, Encryption
 if hasattr(requests.packages.urllib3, 'disable_warnings'):
     requests.packages.urllib3.disable_warnings()
 
+# Global declarations
 LOGGERS = {}
 
 
-
 class Args:
-
+    """
+    Args Class handles the cmdline arguments passed to the code
+    Usage can be stored to a variable or called by Args().<property>
+    """
     def __init__(self):
         # Retrieve and set script arguments for use throughout
         parser = argparse.ArgumentParser(description="Deploy a new VM Performance Collector VM.")
@@ -94,7 +97,9 @@ class CustomObject(object):
 
 
 class Vcenter:
-
+    """
+    Vcenter class handles basic vcenter methods such as connect, disconnect, get_container_view, ect
+    """
     def __init__(self, name, username=None, password=None, credential=None, ssl_context=None):
         self.si = None
         self.content = None
@@ -106,10 +111,17 @@ class Vcenter:
         self.ssl_context = ssl_context
 
     def connect(self):
+        """
+        validate whether username/password were passed or whether a private key should be used
 
+        logger lines have been commented out until logging is fully implemented
+        :return:
+        """
+        # TODO: Ensure logging is setup properly to reinstate the logger lines
         #logger = get_logger('connect_vcenter')
 
         try:
+            # if no ssl_context has been provided then set this to unverified context
             if not self.ssl_context:
                 self.ssl_context = ssl._create_unverified_context()
                 self.ssl_context.verify_mode = ssl.CERT_NONE
@@ -160,14 +172,13 @@ class Vcenter:
 
     def get_container_view(self, view_type, search_root=None, filter_expression=None):
         """
-        Custom container_view function that allows the option for a a filtered expression such as name == john_doe
-        This is similar to the Where clause in powershell.
+        Custom container_view function that allows the option for a filtered expression such as name == john_doe
+        This is similar to the Where clause in powershell, however, this is case sensative.
         This function does not handle multiple evaluations such as 'and/or'. This can only evaluate a single expression.
-        :param content:
-        :param view_type:
-        :param search_root:
-        :param filter_expression:
-        :return:
+        :param view_type: MoRef type [vim.VirtualMachine] , [vim.HostSystem], [vim.ClusterComputeResource], ect
+        :param search_root: ManagedObject to search from, by default this is rootFolder
+        :param filter_expression: Only return results that match this expression
+        :return: list of ManagedObjects
         """
 
         def create_filter_spec(pc, obj_view, view_type, prop):
@@ -311,7 +322,8 @@ class Vcenter:
             prop_results = property_collector.RetrievePropertiesEx([filter_spec], property_collector_options)
             totalProps = []
             totalProps += prop_results.objects
-            # RetrievePropertiesEx will only retrieve a subset of properties. So need to use ContinueRetrievePropertiesEx
+            # RetrievePropertiesEx will only retrieve a subset of properties.
+            # So need to use ContinueRetrievePropertiesEx
             while prop_results.token:
                 prop_results = property_collector.ContinueRetrievePropertiesEx(token=prop_results.token)
                 totalProps += prop_results.objects
@@ -336,7 +348,10 @@ class Vcenter:
 
 
 class VirtMachine:
+    """
+    VirtMachine class holds Vcenter object and VM object and provides snapshot methods of create and get
 
+    """
     def __init__(self, vmname, vcenter, vm_obj=None):
         self.vcenter = vcenter
         if not vm_obj:
@@ -383,6 +398,10 @@ class VirtMachine:
 
 
 class ExportVM(VirtMachine):
+    """
+    ExportVM class inherits from VirtMachine class and handles the Exporting of a VM object
+    """
+    # TODO: Need to provide a method for exporting the memory snapshot file .VMSN
 
     def __init__(self, vcenter, vmname, destination_path, vm_obj=None):
         VirtMachine.__init__(self, vcenter=vcenter, vmname=vmname, vm_obj=vm_obj)
@@ -587,6 +606,9 @@ class ExportVM(VirtMachine):
 
 
 class LinkedClone(VirtMachine):
+    """
+    This class handles the cloning operations. It inherits from VirtMachine Class
+    """
 
     def __init__(self, vmname, dest_vm_name, vcenter):
         VirtMachine.__init__(self, vmname=vmname, vcenter=vcenter)
@@ -612,6 +634,7 @@ class LinkedClone(VirtMachine):
             try:
                 tmp = obj.parent
             except:
+                # default value if no DC is found
                 return CustomObject({"name": "0319"})
 
             return self._get_datacenter_from_obj(obj.parent)
@@ -620,8 +643,8 @@ class LinkedClone(VirtMachine):
 
     def _get_vm_cluster_from_obj(self, obj=None):
         """
-        Pass a VM object and this will return the cluster that object belongs to. this implies that the Vm is part of a cluster
-        This will fail if the Vm is not in a cluster
+        Pass a VM object and this will return the cluster that object belongs to. this implies that
+        the Vm is part of a cluster. This will fail if the Vm is not in a cluster.
         :param obj:
         :return:
         """
@@ -666,15 +689,18 @@ class LinkedClone(VirtMachine):
 
     def get_snapshot(self):
         curr_snap = self.vm_obj.snapshot.currentSnapshot
-        current_snap_obj = self._get_current_snap_obj(
-            self.vm_obj.snapshot.rootSnapshotList, curr_snap)
+        # current_snap_obj = self._get_current_snap_obj(
+        #     self.vm_obj.snapshot.rootSnapshotList, curr_snap)
         return curr_snap
 
 
 class LeaseProgressUpdater(threading.Thread):
     """
         Lease Progress Updater & keep alive
-        thread
+        thread.
+        HttpNfcLease will expire if not constantly updated
+
+        code pulled directly from the pyvmomi sample file export_vm.py with little modifications
     """
     def __init__(self, http_nfc_lease, update_interval):
         threading.Thread.__init__(self)
@@ -695,6 +721,8 @@ class LeaseProgressUpdater(threading.Thread):
             try:
                 if self.httpNfcLease.state == vim.HttpNfcLease.State.done:
                     return
+                # don't want a screen full of current percent complete, so lets store the percent and check whether
+                # it changed.
                 if not self.prev_progressPercent == self.progressPercent:
                     self.prev_progressPercent = self.progressPercent
                     print('Updating HTTP NFC Lease ' \
@@ -717,36 +745,45 @@ def main():
                  ssl_context=ssl_context)
     vc.connect()
 
+    # generate an md5 hash of the name and date to use for the clone
     md5 = hashlib.md5((str(args.vm)+str(datetime.now().ctime())).encode('utf-8')).hexdigest()
+    # define the name for the clone using the first 16 char of the md5 hash
     clone_name = "{}_ITSecExport_{}".format(args.vm, md5[0:16])
 
+    # initialize the src_vm
     src_vm = LinkedClone(vcenter=vc,
                          vmname=args.vm,
                          dest_vm_name=clone_name)
-
+    # snap the src_vm
     src_vm.create_snapshot(name="ITSecurity_snapshot_{}".format(md5[0:16]),
                            description="Snapshot in preparation for IT Security Clone on {}".format(
                                datetime.now().ctime()),
                            )
+    # clone the src_vm
     src_vm.clone_vm()
 
-    # start the export
+    # initialize the ExportVM object
     exp_job = ExportVM(vcenter=vc,
                        vmname=src_vm.cloned_vm.name,
                        vm_obj=src_vm.cloned_vm,
                        destination_path="{}".format(os.path.join(args.destination, args.vm))
                        )
+    # prep the export
     exp_job.prepare_export()
+    # export the cloned vm
     exp_job.export()
+
+    # disconnect from vCenter
+    vc.disconnect()
 
 
 def get_logger(name):
     """
-    This is currently broken for this program. It was pulled from a different script but has not been modified
+    This is currently broken for this program. It was pulled from a different file but has not been modified
     to work with this file. Minor modifications are needed to get it right.
 
     For logging purposes each function or thread will need a new logger to log to the appropriate file.
-    This function will check the global dict variable loggers for a logger witht he name provided,
+    This function will check the global dict variable loggers for a logger with the name provided,
      if found then it will return that logger, otherwise it will create a new logger.
     Using this method instead of logging.config.dictConfig() so as to prevent duplicate logging
     Admittedly, this is a workaround instead of trying to figure out how to utilize the built-in dictConfig()
